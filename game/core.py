@@ -16,6 +16,7 @@ class Game(object):
         self.map_file = map_file
         self.img_dict = img_dict
         # cfg == [zoom, u_size, nb_elements]
+        self.cfg = cfg
         self.u_size = cfg[1]
         self.playing = True
         self.pause = False
@@ -89,9 +90,22 @@ class Game(object):
         # remove item of all groups
         item.kill()
         if not len(self.item_group):
-            # Step 4 : boss is going to sleep
-            # self.boss.isSleeping = True
+            # boss is going to sleep
+            self.boss.isSleeping = True
             self.boss.kill()
+
+    def checkPlayerPosition(self):
+        autorisation = True
+        if pygame.sprite.spritecollide(self.mcgyver, self.wall_group, 0):
+            autorisation = False
+        x = self.mcgyver.rect.x
+        y = self.mcgyver.rect.y
+        surf = pygame.display.get_surface().get_rect()
+        if x >= 0 and x < surf.w and y >= 0 and y < surf.h:
+            pass
+        else:
+            autorisation = False
+        return autorisation
 
     def game(self, screen):
         self.all_sprites_group.update()
@@ -105,6 +119,10 @@ class Game(object):
             self.chrono.pause()
             self.playing = False
             self.pause = False
+            if self.boss.isSleeping:
+                print("Victory : {}s".format(int(self.chrono.get_chrono())))
+            else:
+                print("Game Over : {}s".format(int(self.chrono.get_chrono())))
 
     def render_game(self, screen):
         if self.playing and not self.pause:
@@ -113,23 +131,30 @@ class Game(object):
 
     def events_manager(self):
         """Manage events"""
+        keys = {
+            pygame.K_UP: lambda: self.mcgyver.movement(0, -self.u_size),
+            pygame.K_DOWN: lambda: self.mcgyver.movement(0, self.u_size),
+            pygame.K_LEFT: lambda: self.mcgyver.movement(-self.u_size, 0),
+            pygame.K_RIGHT: lambda: self.mcgyver.movement(self.u_size, 0)
+        }
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 self.playing = False
             elif event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_ESCAPE:
                     self.pause = not self.pause
-                # dans McGyver ?
-                sav_x = 0+self.mcgyver.rect.x
-                sav_y = 0+self.mcgyver.rect.y
-                if event.key == pygame.K_UP:
-                    self.mcgyver.rect.y -= self.u_size
-                elif event.key == pygame.K_LEFT:
-                    self.mcgyver.rect.x -= self.u_size
-                elif event.key == pygame.K_RIGHT:
-                    self.mcgyver.rect.x += self.u_size
-                elif event.key == pygame.K_DOWN:
-                    self.mcgyver.rect.y += self.u_size
-                if pygame.sprite.spritecollide(self.mcgyver, self.wall_group, 0):
-                    self.mcgyver.rect.x = sav_x
-                    self.mcgyver.rect.y = sav_y
+                # Movements
+                #  = 0 + .. is my ugly way to create a new value
+                # without referencing the old one
+                # i'm totally open to suggestions for this one
+                # since i can't remember how to do it properly
+                sav_rect_x = 0 + self.mcgyver.rect.x
+                sav_rect_y = 0 + self.mcgyver.rect.y
+                if event.key in keys:
+                    func = keys[event.key]
+                    func()
+                    # Test if position isn't possible
+                    if not self.checkPlayerPosition():
+                        # revert change
+                        self.mcgyver.rect.x = sav_rect_x
+                        self.mcgyver.rect.y = sav_rect_y
